@@ -1,0 +1,24 @@
+name: Package Mozarebe APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/package-mozarebe.yml'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify APK
+        run: |
+          test -s Mozarebe-v1.0.0-debug.apk
+          sha256sum Mozarebe-v1.0.0-debug.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mozarebe-v1.0.0-debug
+          path: Mozarebe-v1.0.0-debug.apk
+          retention-days: 1
