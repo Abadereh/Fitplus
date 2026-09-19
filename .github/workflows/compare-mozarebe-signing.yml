@@ -1,0 +1,32 @@
+name: Compare Mozarebe Signing Keys
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/compare-mozarebe-signing.yml'
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure apksigner
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "build-tools;36.0.0" >/dev/null
+      - name: Compare signatures
+        shell: bash
+        run: |
+          set -e
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          echo "=== v1.0.0 ==="
+          "$APKSIGNER" verify --print-certs Mozarebe-v1.0.0-debug.apk
+          echo "=== v1.0.1 ==="
+          "$APKSIGNER" verify --print-certs Mozarebe-v1.0.1-debug.apk
