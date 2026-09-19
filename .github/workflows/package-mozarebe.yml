@@ -14,11 +14,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify APK
         run: |
-          test -s Mozarebe-v1.0.0-debug.apk
-          sha256sum Mozarebe-v1.0.0-debug.apk
+          test -s Mozarebe-v1.0.1-debug.apk
+          sha256sum Mozarebe-v1.0.1-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Mozarebe-v1.0.0-debug
-          path: Mozarebe-v1.0.0-debug.apk
+          name: Mozarebe-v1.0.1-debug
+          path: Mozarebe-v1.0.1-debug.apk
           retention-days: 1
