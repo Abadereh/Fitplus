@@ -14,11 +14,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify APK
         run: |
-          test -s Mozarebe-v1.0.2-fixedkey.apk
-          sha256sum Mozarebe-v1.0.2-fixedkey.apk
+          test -s Mozarebe-v1.0.4-fixedkey.apk
+          sha256sum Mozarebe-v1.0.4-fixedkey.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Mozarebe-v1.0.2-fixedkey
-          path: Mozarebe-v1.0.2-fixedkey.apk
+          name: Mozarebe-v1.0.4-fixedkey
+          path: Mozarebe-v1.0.4-fixedkey.apk
           retention-days: 1
