@@ -35,23 +35,18 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('decoded/AndroidManifest.xml')
-          s=p.read_text()
-          s=s.replace('android:versionCode="15"', 'android:versionCode="16"')
-          s=s.replace('android:versionName="1.0.14"', 'android:versionName="1.0.15"')
-          p.write_text(s)
           y=Path('decoded/apktool.yml')
-          if y.exists():
-              t=y.read_text()
-              t=t.replace("versionCode: '15'", "versionCode: '16'")
-              t=t.replace("versionName: 1.0.14", "versionName: 1.0.15")
-              t=t.replace("versionName: '1.0.14'", "versionName: '1.0.15'")
-              y.write_text(t)
+          t=y.read_text()
+          t=t.replace("versionCode: 15", "versionCode: 16")
+          t=t.replace("versionCode: '15'", "versionCode: '16'")
+          t=t.replace("versionName: 1.0.14", "versionName: 1.0.15")
+          t=t.replace("versionName: '1.0.14'", "versionName: '1.0.15'")
+          y.write_text(t)
           PY
 
           grep -q 'QuickChecklistHelper;->render' "$MAIN"
-          grep -q 'android:versionCode="16"' decoded/AndroidManifest.xml
-          grep -q 'android:versionName="1.0.15"' decoded/AndroidManifest.xml
+          grep -q 'versionCode: 16' decoded/apktool.yml
+          grep -q 'versionName: 1.0.15' decoded/apktool.yml
 
       - name: Compile injected quick-view helper
         run: |
@@ -87,8 +82,8 @@ jobs:
           grep -q 'QuickChecklistHelper;->render' "$MAIN"
           grep -R -q 'detail_checklist_quick_view_v115' verify_decoded/smali_classes5
           grep -R -q 'نمای سریع موارد تشکیل پرونده' verify_decoded/smali_classes5
-          grep -q 'android:versionCode="16"' verify_decoded/AndroidManifest.xml
-          grep -q 'android:versionName="1.0.15"' verify_decoded/AndroidManifest.xml
+          grep -q 'versionCode: 16' verify_decoded/apktool.yml
+          grep -q 'versionName: 1.0.15' verify_decoded/apktool.yml
           echo 'QUICK VIEW PATCH STRUCTURE OK'
 
       - name: Package reconstructed source/patch
