@@ -1,0 +1,19 @@
+name: Inspect Private Backup
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-backup.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inspect-apk-v4
+          path: temp/apk_v4.zip
+          compression-level: 0
+          retention-days: 1
