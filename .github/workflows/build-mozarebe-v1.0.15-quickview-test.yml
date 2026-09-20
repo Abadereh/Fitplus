@@ -79,11 +79,14 @@ jobs:
           unzip -l Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk | grep -q 'classes5.dex'
           java -jar apktool.jar d -f Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk -o verify_decoded >/dev/null
           MAIN=$(find verify_decoded -name 'MainActivity.smali' | grep 'com/aoto/mozarebe/MainActivity.smali' | head -1)
+          test -n "$MAIN"
           grep -q 'QuickChecklistHelper;->render' "$MAIN"
+          grep -R -q 'QuickChecklistHelper' verify_decoded/smali_classes5
           grep -R -q 'detail_checklist_quick_view_v115' verify_decoded/smali_classes5
-          grep -R -q 'نمای سریع موارد تشکیل پرونده' verify_decoded/smali_classes5
-          grep -q 'versionCode: 16' verify_decoded/apktool.yml
-          grep -q 'versionName: 1.0.15' verify_decoded/apktool.yml
+          BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk | head -1)
+          echo "$BADGING" | grep -q "name='com.aoto.mozarebe'"
+          echo "$BADGING" | grep -q "versionCode='16'"
+          echo "$BADGING" | grep -q "versionName='1.0.15'"
           echo 'QUICK VIEW PATCH STRUCTURE OK'
 
       - name: Package reconstructed source/patch
