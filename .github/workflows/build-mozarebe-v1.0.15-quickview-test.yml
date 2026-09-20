@@ -1,0 +1,119 @@
+name: Build Mozarebe v1.0.15 Quick View Test
+on:
+  push:
+    paths:
+      - '.github/workflows/build-mozarebe-v1.0.15-quickview-test.yml'
+      - '.github/mozarebe-v115/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          set -e
+          curl -L --fail --retry 3 -o apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" >/dev/null
+
+      - name: Decode and patch current APK
+        run: |
+          set -euo pipefail
+          java -jar apktool.jar d -f Mozarebe-v1.0.14-fixedkey.apk -o decoded
+          MAIN=$(find decoded -name 'MainActivity.smali' | grep 'com/aoto/mozarebe/MainActivity.smali' | head -1)
+          test -n "$MAIN"
+          python3 .github/mozarebe-v115/patch_mainactivity_smali.py "$MAIN"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('decoded/AndroidManifest.xml')
+          s=p.read_text()
+          s=s.replace('android:versionCode="15"', 'android:versionCode="16"')
+          s=s.replace('android:versionName="1.0.14"', 'android:versionName="1.0.15"')
+          p.write_text(s)
+          y=Path('decoded/apktool.yml')
+          if y.exists():
+              t=y.read_text()
+              t=t.replace("versionCode: '15'", "versionCode: '16'")
+              t=t.replace("versionName: 1.0.14", "versionName: 1.0.15")
+              t=t.replace("versionName: '1.0.14'", "versionName: '1.0.15'")
+              y.write_text(t)
+          PY
+
+          grep -q 'QuickChecklistHelper;->render' "$MAIN"
+          grep -q 'android:versionCode="16"' decoded/AndroidManifest.xml
+          grep -q 'android:versionName="1.0.15"' decoded/AndroidManifest.xml
+
+      - name: Compile injected quick-view helper
+        run: |
+          set -euo pipefail
+          mkdir -p helper_classes helper_dex
+          javac -source 8 -target 8             -classpath "$ANDROID_HOME/platforms/android-36/android.jar"             -d helper_classes             .github/mozarebe-v115/QuickChecklistHelper.java
+          "$ANDROID_HOME/build-tools/36.0.0/d8"             --lib "$ANDROID_HOME/platforms/android-36/android.jar"             --min-api 26             --output helper_dex             $(find helper_classes -name '*.class' -print)
+          test -s helper_dex/classes.dex
+          cp helper_dex/classes.dex classes5.dex
+
+      - name: Rebuild patched APK
+        run: |
+          set -euo pipefail
+          java -jar apktool.jar b decoded -o rebuilt.apk
+          zip -q -0 rebuilt.apk classes5.dex
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 rebuilt.apk aligned.apk
+
+      - name: Sign with disposable TEST key only
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt             -keystore test-only.jks -storepass changeit -keypass changeit             -alias test-only -keyalg RSA -keysize 2048 -validity 30             -dname "CN=TEST ONLY,OU=Do Not Install,O=Aoto,C=AZ"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign             --ks test-only.jks --ks-key-alias test-only             --ks-pass pass:changeit --key-pass pass:changeit             --out Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk aligned.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs             Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging             Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk | head -3
+          sha256sum Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk
+
+      - name: Verify structural invariants
+        run: |
+          set -euo pipefail
+          unzip -l Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk | grep -q 'classes5.dex'
+          java -jar apktool.jar d -f Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk -o verify_decoded >/dev/null
+          MAIN=$(find verify_decoded -name 'MainActivity.smali' | grep 'com/aoto/mozarebe/MainActivity.smali' | head -1)
+          grep -q 'QuickChecklistHelper;->render' "$MAIN"
+          grep -R -q 'detail_checklist_quick_view_v115' verify_decoded/smali_classes5
+          grep -R -q 'نمای سریع موارد تشکیل پرونده' verify_decoded/smali_classes5
+          grep -q 'android:versionCode="16"' verify_decoded/AndroidManifest.xml
+          grep -q 'android:versionName="1.0.15"' verify_decoded/AndroidManifest.xml
+          echo 'QUICK VIEW PATCH STRUCTURE OK'
+
+      - name: Package reconstructed source/patch
+        run: |
+          set -euo pipefail
+          mkdir -p source_bundle/reconstructed-v1.0.14
+          cp -r .github/mozarebe-v115 source_bundle/v1.0.15-patch
+          cp -r decoded/AndroidManifest.xml decoded/res source_bundle/reconstructed-v1.0.14/
+          mkdir -p source_bundle/reconstructed-v1.0.14/smali-app
+          MAIN=$(find decoded -name 'MainActivity.smali' | grep 'com/aoto/mozarebe/MainActivity.smali' | head -1)
+          DB=$(find decoded -name 'DbHelper.smali' | grep 'com/aoto/mozarebe/DbHelper.smali' | head -1)
+          MODELS=$(find decoded -name 'Models.smali' | grep 'com/aoto/mozarebe/Models.smali' | head -1)
+          cp "$MAIN" "$DB" "$MODELS" source_bundle/reconstructed-v1.0.14/smali-app/
+          cat > source_bundle/IMPORTANT.txt <<'TXT'
+          This is a reconstructed patch package because the original private source repository is currently unavailable.
+          It contains NO private signing key.
+          Do not sign an update with a different key: Android requires the exact Mozarebe Permanent Update Key.
+          Database schema is unchanged (DB v5).
+          TXT
+          (cd source_bundle && zip -qr ../Mozarebe-Android-v1.0.15-quickview-reconstructed-source.zip .)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mozarebe-v1.0.15-quickview-build-proof
+          path: |
+            Mozarebe-v1.0.15-QUICKVIEW-TESTKEY.apk
+            Mozarebe-Android-v1.0.15-quickview-reconstructed-source.zip
+          retention-days: 1
